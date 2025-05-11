@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Speed Reader with PDF Upload</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; background: #111; color: #eee; margin: 0; padding: 20px; }
+    #word { font-size: 60px; margin: 50px 0; }
+    textarea { width: 80%; height: 150px; }
+    input, button { margin: 10px; padding: 10px; font-size: 16px; }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
+</head>
+<body>
+  <h1>Speed Reader</h1>
+  
+  <!-- PDF Upload Section -->
+  <input type="file" id="pdf-upload" accept=".pdf" />
+  <button onclick="loadPDF()">Load PDF</button>
+
+  <!-- Text Area for Speed Reading -->
+  <textarea id="text" placeholder="Paste or load text here..."></textarea><br>
+  
+  <!-- Speed Control -->
+  <label>Speed (WPM): <input type="number" id="speed" value="500"></label><br>
+  <button onclick="start()">Start</button>
+  <button onclick="stop()">Stop</button>
+  <button onclick="resume()">Resume</button>
+  
+  <div id="word"></div>
+
+  <script>
+    let words = [], index = 0, interval;
+    let isPaused = false;
+
+    // Start Speed Reading
+    function start() {
+      clearInterval(interval);
+      let text = document.getElementById('text').value;
+      words = text.split(/\s+/);
+      index = 0;
+      let wpm = parseInt(document.getElementById('speed').value);
+      let delay = 60000 / wpm;
+      interval = setInterval(showWord, delay);
+      isPaused = false;
+    }
+
+    // Show Word
+    function showWord() {
+      if (index >= words.length) {
+        clearInterval(interval);
+        document.getElementById('word').innerText = "Done!";
+        return;
+      }
+      document.getElementById('word').innerText = words[index];
+      index++;
+    }
+
+    // Stop Speed Reading
+    function stop() {
+      clearInterval(interval);
+      document.getElementById('word').innerText = "Stopped.";
+      isPaused = false;
+    }
+
+    // Resume Speed Reading
+    function resume() {
+      if (isPaused) {
+        let wpm = parseInt(document.getElementById('speed').value);
+        let delay = 60000 / wpm;
+        interval = setInterval(showWord, delay);
+        isPaused = false;
+      }
+    }
+
+    // Load PDF and extract text
+    function loadPDF() {
+      const fileInput = document.getElementById('pdf-upload');
+      const file = fileInput.files[0];
+      
+      if (file && file.type === 'application/pdf') {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          const pdfData = new Uint8Array(event.target.result);
+
+          pdfjsLib.getDocument(pdfData).promise.then(function(pdf) {
+            let textContent = '';
+            const numPages = pdf.numPages;
+            let currentPage = 1;
+
+            function extractText(pageNumber) {
+              pdf.getPage(pageNumber).then(function(page) {
+                page.getTextContent().then(function(text) {
+                  text.items.forEach(function(item) {
+                    textContent += item.str + ' ';
+                  });
+
+                  if (currentPage === numPages) {
+                    document.getElementById('text').value = textContent;
+                  }
+                  currentPage++;
+                });
+              });
+            }
+
+            for (let i = 1; i <= numPages; i++) {
+              extractText(i);
+            }
+          });
+        };
+        reader.readAsArrayBuffer(file);
+      } else {
+        alert("Please upload a valid PDF file.");
+      }
+    }
+  </script>
+</body>
+</html>
